@@ -1,14 +1,103 @@
-function createStore(reducer) {
-  let state = 0;
+import React from 'react';
 
-  const getState = () => (state);
-
+function createStore(reducer, initialState) {
+  let state = initialState;
+  const listeners = [];
+  const subscribe = (listener) => {
+    listeners.push(listener);
+  };
+  const getState = () => state;
   const dispatch = (action) => {
     state = reducer(state, action);
+    listeners.forEach((l) => l());
   };
-
   return {
+    subscribe,
     getState,
-    dispatch,
+    dispatch
   };
 }
+function reducer(state, action) {
+  if (action.type === 'ADD_MESSAGE') {
+    return {
+      messages: state.messages.concat(action.message)
+    };
+  } else if (action.type === 'DELETE_MESSAGE') {
+    return {
+      messages: [
+        ...state.messages.slice(0, action.index),
+        ...state.messages.slice(action.index + 1, state.messages.length)
+      ]
+    };
+  } else {
+    return state;
+  }
+}
+const initialState = { messages: [] };
+const store = createStore(reducer, initialState);
+
+class App extends React.Component {
+  componentDidMount() {
+    store.subscribe(() => this.forceUpdate());
+  }
+  render() {
+    const messages = store.getState().messages;
+    return (
+      <div className="ui segment">
+        <MessageView messages={messages} />
+        <MessageInput />
+      </div>
+    );
+  }
+}
+
+class MessageInput extends React.Component {
+  state = {
+    value: ''
+  };
+  handleInputChange = (event) => {
+    const { name, value } = event.target;
+    this.setState(() => ({
+      [name]: value
+    }));
+  };
+  handleSubmit = () => {
+    store.dispatch({
+      type: 'ADD_MESSAGE',
+      message: this.state.value
+    });
+    this.setState(() => ({
+      value: ''
+    }));
+  };
+  render() {
+    return (
+      <div className="ui input">
+        <input type="text" value={this.state.value} name="value" onChange={this.handleInputChange} />
+        <button className="ui primary button" onClick={this.handleSubmit} type="submit">
+          Submit Message
+        </button>
+      </div>
+    );
+  }
+}
+class MessageView extends React.Component {
+  handleClick = (index) => {
+    store.dispatch({
+      type: 'DELETE_MESSAGE',
+      index: index
+    });
+  };
+  render() {
+    const messages = this.props.messages.map((message, index) => {
+      return (
+        <div className="comment" key={index} onClick={() => this.handleClick(index)}>
+          {message}
+        </div>
+      );
+    });
+    return <div className="ui comments">{messages}</div>;
+  }
+}
+
+export default App;
